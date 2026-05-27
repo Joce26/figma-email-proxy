@@ -1,0 +1,6 @@
+{
+  "name": "figma-email-proxy",
+  "version": "1.0.0",
+  "description": "Proxy server for Figma Email Publisher plugin",
+  "private": true
+}
