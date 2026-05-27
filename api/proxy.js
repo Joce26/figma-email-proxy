@@ -28,10 +28,12 @@ export default async function handler(req, res) {
 
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { platform, endpoint, apiKey, body } = req.body;
+  const { platform, endpoint, apiKey, body, method } = req.body;
   if (!platform || !endpoint || !apiKey || !body) {
     return res.status(400).json({ error: "Missing required fields" });
   }
+
+  const httpMethod = method || "POST";
 
   let targetUrl, headers;
 
@@ -54,10 +56,10 @@ export default async function handler(req, res) {
   }
 
   try {
-    console.log("Proxy -> " + targetUrl);
+    console.log("Proxy " + httpMethod + " -> " + targetUrl);
     console.log("Body: " + JSON.stringify(body).substring(0, 2000));
     const response = await fetch(targetUrl, {
-      method: "POST",
+      method: httpMethod,
       headers,
       body: JSON.stringify(body)
     });
