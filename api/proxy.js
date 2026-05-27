@@ -4,6 +4,28 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method === "GET") {
+    const { platform, endpoint, apiKey } = req.query;
+    let targetUrl, headers;
+    if (platform === "omnisend") {
+      targetUrl = `https://api.omnisend.com/api/${endpoint}`;
+      headers = {
+        "Authorization": `Omnisend-API-Key ${apiKey}`,
+        "Omnisend-Version": "2026-03-15",
+        "Content-Type": "application/json"
+      };
+    }
+    try {
+      const response = await fetch(targetUrl, { method: "GET", headers });
+      const text = await response.text();
+      let data;
+      try { data = JSON.parse(text); } catch(e) { data = { raw: text }; }
+      return res.status(response.status).json(data);
+    } catch(err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const { platform, endpoint, apiKey, body } = req.body;
@@ -32,6 +54,8 @@ export default async function handler(req, res) {
   }
 
   try {
+    console.log("Proxy -> " + targetUrl);
+    console.log("Body: " + JSON.stringify(body).substring(0, 2000));
     const response = await fetch(targetUrl, {
       method: "POST",
       headers,
