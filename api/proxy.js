@@ -48,7 +48,7 @@ export default async function handler(req, res) {
     targetUrl = `https://a.klaviyo.com/api/${endpoint}`;
     headers = {
       "Authorization": `Klaviyo-API-Key ${apiKey}`,
-      "revision": "2026-01-15",
+      "revision": "2026-04-15.pre",
       "Content-Type": "application/vnd.api+json",
       "accept": "application/vnd.api+json"
     };
