@@ -48,8 +48,9 @@ export default async function handler(req, res) {
     targetUrl = `https://a.klaviyo.com/api/${endpoint}`;
     headers = {
       "Authorization": `Klaviyo-API-Key ${apiKey}`,
-      "revision": "2024-10-15",
-      "Content-Type": "application/json"
+      "revision": "2026-01-15",
+      "Content-Type": "application/vnd.api+json",
+      "accept": "application/vnd.api+json"
     };
   } else {
     return res.status(400).json({ error: `Unknown platform: ${platform}` });
