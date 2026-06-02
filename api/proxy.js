@@ -1,3 +1,8 @@
+// © 2026 Jocelyn Abel. All rights reserved.
+// SliceNSend | figma-email-proxy.vercel.app
+// Unauthorized copying, distribution, or modification of this software
+// is strictly prohibited without written permission from the author.
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
