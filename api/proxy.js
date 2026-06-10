@@ -313,9 +313,12 @@ export default async function handler(req, res) {
   try {
     const fetchOptions = { method: httpMethod, headers };
     if (body && ["POST","PUT","PATCH"].includes(httpMethod)) fetchOptions.body = JSON.stringify(body);
+    console.log("Passthrough " + httpMethod + " -> " + targetUrl);
+    if (body) console.log("Passthrough body:", JSON.stringify(body).substring(0, 1500));
     const response = await fetch(targetUrl, fetchOptions);
     const text = await response.text();
     let data; try { data = JSON.parse(text); } catch(e) { data = { raw: text }; }
+    console.log("Passthrough response:", response.status, JSON.stringify(data).substring(0, 1500));
     return res.status(response.status).json(data);
   } catch(err) { return res.status(500).json({ error: "Proxy error: " + err.message }); }
 }
