@@ -229,7 +229,8 @@ export default async function handler(req, res) {
         });
         const ttext = await tres.text();
         let tdata; try { tdata = JSON.parse(ttext); } catch(e) { tdata = { raw: ttext }; }
-        console.log("Omnisend template:", tres.status, JSON.stringify(tdata).substring(0, 200));
+        console.log("Omnisend template:", tres.status, JSON.stringify(tdata).substring(0, 1000));
+        console.log("Template body sent:", JSON.stringify(templateBody).substring(0, 1000));
 
         let templateId = tdata.id || tdata.templateID || null;
         if (!tres.ok) {
