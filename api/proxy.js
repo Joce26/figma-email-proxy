@@ -69,6 +69,15 @@ function buildOmnisendTemplate(templateName, imageUrls) {
   return {
     name: templateName,
     channel: "email",
+    generalSettings: {
+      previewText: "",
+      textDirection: "ltr",
+      contentBackground: "#FFFFFF",
+      linksColor: "#000000",
+      linkIsUnderline: true,
+      textColor: "#000000",
+      fontFamily: "Arial, sans-serif"
+    },
     templateProperties: {
       backgroundColor: "#F4F4F4",
       contentWidth: "600px",
