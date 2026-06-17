@@ -134,11 +134,11 @@ function buildKlaviyoTemplate(templateName, imageUrls) {
             data: {
               properties: {
                 src: imageUrls[i].url,
-                alt: imageUrls[i].name,
+                alt_text: imageUrls[i].name,
                 href: "",
                 dynamic: false
               },
-              styles: { width: "100%" },
+              styles: { width: 600 },
               display_options: {}
             }
           }]
