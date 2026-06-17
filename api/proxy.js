@@ -110,35 +110,59 @@ function buildOmnisendTemplate(templateName, imageUrls) {
 
 // ── Klaviyo template builder ───────────────────────────────────────────────
 function buildKlaviyoTemplate(templateName, imageUrls) {
-  var imageRows = "";
+  var sections = [];
   for (var i = 0; i < imageUrls.length; i++) {
-    imageRows += '<tr>\n';
-    imageRows += '  <td align="center" style="padding:0;margin:0;" data-klaviyo-region="true" data-klaviyo-region-width-pixels="600">\n';
-    imageRows += '    <div class="klaviyo-block klaviyo-image-block">\n';
-    imageRows += '      <img src="' + imageUrls[i].url + '" alt="' + imageUrls[i].name + '" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;" />\n';
-    imageRows += '    </div>\n';
-    imageRows += '  </td>\n</tr>\n';
+    sections.push({
+      content_type: "section",
+      type: "section",
+      data: {
+        properties: {},
+        display_options: {},
+        styles: {
+          background_color: "#ffffff",
+          padding: "0px 0px 0px 0px"
+        }
+      },
+      rows: [{
+        data: {
+          styles: { column_layout: "1-column-full-width" }
+        },
+        columns: [{
+          data: {},
+          blocks: [{
+            content_type: "block",
+            type: "image",
+            data: {
+              properties: {
+                src: imageUrls[i].url,
+                alt: imageUrls[i].name,
+                href: ""
+              },
+              styles: { width: "100%", padding: "0px 0px 0px 0px" },
+              display_options: {}
+            }
+          }]
+        }]
+      }]
+    });
   }
 
-  var html = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">\n';
-  html += '<html xmlns="http://www.w3.org/1999/xhtml">\n<head>\n';
-  html += '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />\n';
-  html += '<meta name="viewport" content="width=device-width, initial-scale=1.0"/>\n';
-  html += '<title>' + templateName + '</title>\n';
-  html += '<style type="text/css">\n';
-  html += '  body { margin:0; padding:0; background-color:#f4f4f4; }\n';
-  html += '  img { border:0; height:auto; line-height:100%; outline:none; text-decoration:none; }\n';
-  html += '  table { border-collapse:collapse !important; }\n';
-  html += '  @media only screen and (max-width:600px) { .container { width:100% !important; } img { width:100% !important; height:auto !important; } }\n';
-  html += '</style>\n</head>\n';
-  html += '<body style="margin:0;padding:0;background-color:#f4f4f4;">\n';
-  html += '<table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f4f4f4;">\n';
-  html += '  <tr><td align="center" style="padding:0;">\n';
-  html += '    <table class="container" border="0" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background-color:#ffffff;">\n';
-  html += imageRows;
-  html += '    </table>\n  </td></tr>\n</table>\n</body>\n</html>';
-
-  return { data: { type: "template", attributes: { name: templateName, editor_type: "USER_DRAGGABLE", html: html } } };
+  return {
+    data: {
+      type: "template",
+      attributes: {
+        name: templateName,
+        editor_type: "SYSTEM_DRAGGABLE",
+        definition: {
+          body: {
+            properties: {},
+            styles: { background_color: "#f4f4f4" },
+            sections: sections
+          }
+        }
+      }
+    }
+  };
 }
 
 // ── Main handler ───────────────────────────────────────────────────────────
@@ -280,16 +304,17 @@ export default async function handler(req, res) {
     if (platform === "klaviyo") {
       try {
         const klaviyoBody = buildKlaviyoTemplate(templateName, imageUrls || []);
+        console.log("Klaviyo SYSTEM_DRAGGABLE body:", JSON.stringify(klaviyoBody).substring(0, 1000));
         const tres = await fetch("https://a.klaviyo.com/api/templates", {
           method: "POST",
-          headers: { "Authorization": `Klaviyo-API-Key ${apiKey}`, "revision": "2026-01-15", "Content-Type": "application/vnd.api+json", "accept": "application/vnd.api+json" },
+          headers: { "Authorization": `Klaviyo-API-Key ${apiKey}`, "revision": "2026-04-15", "Content-Type": "application/vnd.api+json", "accept": "application/vnd.api+json" },
           body: JSON.stringify(klaviyoBody)
         });
         const ttext = await tres.text();
         let tdata; try { tdata = JSON.parse(ttext); } catch(e) { tdata = { raw: ttext }; }
-        console.log("Klaviyo template:", tres.status, JSON.stringify(tdata).substring(0, 200));
+        console.log("Klaviyo template:", tres.status, JSON.stringify(tdata).substring(0, 1000));
 
-        if (!tres.ok) return res.status(tres.status).json({ error: "Klaviyo template " + tres.status + ": " + JSON.stringify(tdata).substring(0, 400) });
+        if (!tres.ok) return res.status(tres.status).json({ error: "Klaviyo template " + tres.status + ": " + JSON.stringify(tdata).substring(0, 600) });
         const templateId = tdata.data && tdata.data.id;
         return res.status(200).json({ success: true, templateId: templateId });
       } catch(err) { return res.status(500).json({ error: "Klaviyo publish error: " + err.message }); }
