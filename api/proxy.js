@@ -119,8 +119,7 @@ function buildKlaviyoTemplate(templateName, imageUrls) {
         properties: {},
         display_options: {},
         styles: {
-          background_color: "#ffffff",
-          padding: "0px 0px 0px 0px"
+          background_color: "#ffffff"
         }
       },
       rows: [{
@@ -136,9 +135,10 @@ function buildKlaviyoTemplate(templateName, imageUrls) {
               properties: {
                 src: imageUrls[i].url,
                 alt: imageUrls[i].name,
-                href: ""
+                href: "",
+                dynamic: false
               },
-              styles: { width: "100%", padding: "0px 0px 0px 0px" },
+              styles: { width: "100%" },
               display_options: {}
             }
           }]
