@@ -155,9 +155,7 @@ function buildKlaviyoTemplate(templateName, imageUrls) {
         name: templateName,
         editor_type: "SYSTEM_DRAGGABLE",
         definition: {
-          styles: {
-            background_color: "#f4f4f4"
-          },
+          styles: [],
           body: {
             properties: {},
             styles: { background_color: "#f4f4f4" },
