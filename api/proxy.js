@@ -162,8 +162,7 @@ function buildKlaviyoTemplate(templateName, imageUrls) {
             { style_type: "heading-1-styles", styles: {} },
             { style_type: "heading-2-styles", styles: {} },
             { style_type: "heading-3-styles", styles: {} },
-            { style_type: "heading-4-styles", styles: {} },
-            { style_type: "button-styles", styles: {} }
+            { style_type: "heading-4-styles", styles: {} }
           ],
           body: {
             properties: {},
