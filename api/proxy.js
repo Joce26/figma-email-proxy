@@ -136,7 +136,8 @@ function buildKlaviyoTemplate(templateName, imageUrls) {
                 src: imageUrls[i].url,
                 alt_text: imageUrls[i].name,
                 href: "",
-                dynamic: false
+                dynamic: false,
+                asset_id: imageUrls[i].id || ""
               },
               styles: { width: 600 },
               display_options: {}
