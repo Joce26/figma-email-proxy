@@ -45,8 +45,8 @@ function buildOmnisendTemplate(templateName, imageUrls) {
             type: "image",
             image: {
               source: imageUrls[i].url,
-              link: "",
-              altText: imageUrls[i].name,
+              link: imageUrls[i].link || "",
+              altText: imageUrls[i].altText || imageUrls[i].name,
               width: 9999,
               resizeWidth: 552
             },
@@ -112,10 +112,16 @@ function buildOmnisendTemplate(templateName, imageUrls) {
 function buildKlaviyoTemplate(templateName, imageUrls) {
   var imageRows = "";
   for (var i = 0; i < imageUrls.length; i++) {
+    var imgAlt = imageUrls[i].altText || imageUrls[i].name;
+    var imgLink = imageUrls[i].link || "";
+    var imgTag = '<img src="' + imageUrls[i].url + '" alt="' + imgAlt + '" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;" />';
+    var imgContent = imgLink
+      ? '<a href="' + imgLink + '" target="_blank" style="display:block;">' + imgTag + '</a>'
+      : imgTag;
     imageRows += '<tr>\n';
     imageRows += '  <td align="center" style="padding:0;margin:0;" data-klaviyo-region="true" data-klaviyo-region-width-pixels="600">\n';
     imageRows += '    <div class="klaviyo-block klaviyo-image-block">\n';
-    imageRows += '      <img src="' + imageUrls[i].url + '" alt="' + imageUrls[i].name + '" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;" />\n';
+    imageRows += '      ' + imgContent + '\n';
     imageRows += '    </div>\n';
     imageRows += '  </td>\n</tr>\n';
   }
