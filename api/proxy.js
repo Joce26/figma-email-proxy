@@ -191,48 +191,6 @@ export default async function handler(req, res) {
   }
   console.log("License valid:", license.license.name, "-", license.license.plan);
 
-  // ── AI Alt Text (beta plan only) ────────────────────────────────────────────
-  if (action === "generateAltText") {
-    if (license.license.plan !== "beta") {
-      return res.status(403).json({ error: "AI alt text is only available on beta and premium plans." });
-    }
-    try {
-      const base64Data = imageData.replace(/^data:image\/\w+;base64,/, "");
-      const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": process.env.ANTHROPIC_API_KEY,
-          "anthropic-version": "2023-06-01"
-        },
-        body: JSON.stringify({
-          model: "claude-haiku-4-5-20251001",
-          max_tokens: 60,
-          messages: [{
-            role: "user",
-            content: [
-              { type: "image", source: { type: "base64", media_type: "image/png", data: base64Data } },
-              { type: "text", text: "Write concise, descriptive alt text for this email marketing image, under 125 characters. No marketing fluff, just describe what's shown. Return only the alt text, nothing else." }
-            ]
-          }]
-        })
-      });
-      const data = await anthropicRes.json();
-      if (!anthropicRes.ok) {
-        console.log("Alt text generation failed:", JSON.stringify(data).substring(0, 300));
-        return res.status(anthropicRes.status).json({ error: "Alt text generation failed" });
-      }
-      const altText = data.content && data.content[0] && data.content[0].text
-        ? data.content[0].text.trim().replace(/^["']|["']$/g, "")
-        : "";
-      console.log("Alt text generated for", imageName, ":", altText);
-      return res.status(200).json({ success: true, altText: altText });
-    } catch(err) {
-      console.log("Alt text error:", err.message);
-      return res.status(500).json({ error: "Alt text generation error: " + err.message });
-    }
-  }
-
   // ── Image upload ──────────────────────────────────────────────────────────
   if (action === "uploadImage") {
     console.log("Image upload for", platform, "-", imageName);
