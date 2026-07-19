@@ -109,21 +109,40 @@ function buildOmnisendTemplate(templateName, imageUrls) {
 }
 
 // ── Klaviyo template builder ───────────────────────────────────────────────
+// Built against Klaviyo's documented "hybrid email template" feature
+// (help.klaviyo.com/hc/en-us/articles/115005254188) — NOT the undocumented
+// SYSTEM_DRAGGABLE beta API. This is the stable, supported mechanism:
+// submit a normal HTML template via editor_type: "USER_DRAGGABLE", but wrap
+// each image section in Klaviyo's specific marker markup:
+//
+//   <td align="center" data-klaviyo-region="true" data-klaviyo-region-width-pixels="600">
+//     <div class="klaviyo-block klaviyo-image-block">...</div>
+//   </td>
+//
+// Only regions wrapped this way become live, swappable, drag-and-drop image
+// blocks once the template is added to a campaign or flow — everything else
+// in the HTML stays static. Each Figma frame gets its own marker, so each
+// one becomes an independently movable/editable block, matching what
+// Omnisend already gives natively. Universal Content blocks can also be
+// referenced this same way (data-klaviyo-universal-block="block_id"), but
+// that's a separate feature this function does not attempt.
 function buildKlaviyoTemplate(templateName, imageUrls) {
   var imageRows = "";
   for (var i = 0; i < imageUrls.length; i++) {
-    var imgAlt = imageUrls[i].altText || imageUrls[i].name;
-    var imgLink = imageUrls[i].link || "";
-    var imgTag = '<img src="' + imageUrls[i].url + '" alt="' + imgAlt + '" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;" />';
-    var imgContent = imgLink
-      ? '<a href="' + imgLink + '" target="_blank" style="display:block;">' + imgTag + '</a>'
+    var img = imageUrls[i];
+    var altText = (img.altText || img.name || "").replace(/"/g, "&quot;");
+    var imgTag = '<img src="' + img.url + '" alt="' + altText + '" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;" />';
+    var imgContent = img.link
+      ? '<a href="' + img.link + '" target="_blank" style="display:block;">' + imgTag + '</a>'
       : imgTag;
+
     imageRows += '<tr>\n';
-    imageRows += '  <td align="center" style="padding:0;margin:0;" data-klaviyo-region="true" data-klaviyo-region-width-pixels="600">\n';
+    imageRows += '  <td align="center" data-klaviyo-region="true" data-klaviyo-region-width-pixels="600" style="padding:0;margin:0;">\n';
     imageRows += '    <div class="klaviyo-block klaviyo-image-block">\n';
     imageRows += '      ' + imgContent + '\n';
     imageRows += '    </div>\n';
-    imageRows += '  </td>\n</tr>\n';
+    imageRows += '  </td>\n';
+    imageRows += '</tr>\n';
   }
 
   var html = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">\n';
@@ -216,10 +235,25 @@ export default async function handler(req, res) {
 
     if (platform === "klaviyo") {
       try {
-        const uploadRes = await fetch("https://a.klaviyo.com/api/images", {
+        // Klaviyo's Images API has two distinct upload paths: "Upload Image
+        // From URL" (/api/images, import_from_url — expects a real public
+        // URL, NOT a base64 data URI) and "Upload Image From File"
+        // (/api/image-upload, multipart/form-data). Since imageData here is
+        // a base64 data URI built from raw PNG bytes in code.js, we need the
+        // multipart file endpoint — mirrors how the Omnisend upload above
+        // already sends raw bytes via FormData/Blob.
+        const base64Data = imageData.replace(/^data:image\/\w+;base64,/, "");
+        const buffer = Buffer.from(base64Data, "base64");
+        const formData = new FormData();
+        const blob = new Blob([buffer], { type: "image/png" });
+        formData.append("file", blob, (imageName || "image") + ".png");
+        formData.append("name", imageName || "email-image");
+        formData.append("hidden", "false");
+
+        const uploadRes = await fetch("https://a.klaviyo.com/api/image-upload", {
           method: "POST",
-          headers: { "Authorization": `Klaviyo-API-Key ${apiKey}`, "revision": "2026-01-15", "Content-Type": "application/vnd.api+json", "accept": "application/vnd.api+json" },
-          body: JSON.stringify({ data: { type: "image", attributes: { name: imageName || "email-image", import_from_url: imageData } } })
+          headers: { "Authorization": `Klaviyo-API-Key ${apiKey}`, "revision": "2026-01-15", "accept": "application/vnd.api+json" },
+          body: formData
         });
         const text = await uploadRes.text();
         let data; try { data = JSON.parse(text); } catch(e) { data = { raw: text }; }
@@ -286,7 +320,7 @@ export default async function handler(req, res) {
     if (platform === "klaviyo") {
       try {
         const klaviyoBody = buildKlaviyoTemplate(templateName, imageUrls || []);
-        console.log("Klaviyo SYSTEM_DRAGGABLE body:", JSON.stringify(klaviyoBody).substring(0, 1000));
+        console.log("Klaviyo hybrid template body:", JSON.stringify(klaviyoBody).substring(0, 1000));
         const tres = await fetch("https://a.klaviyo.com/api/templates", {
           method: "POST",
           headers: { "Authorization": `Klaviyo-API-Key ${apiKey}`, "revision": "2026-01-15", "Content-Type": "application/vnd.api+json", "accept": "application/vnd.api+json" },
