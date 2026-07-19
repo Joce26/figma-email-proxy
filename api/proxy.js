@@ -145,6 +145,11 @@ function buildKlaviyoTemplate(templateName, imageUrls) {
               alt_text: img.altText || img.name || "",
               src: img.url
             };
+            // Klaviyo business rule: static image blocks with a src MUST
+            // also carry the asset_id of the uploaded image — this is the
+            // `id` returned by the /api/image-upload call (e.g. "349208647").
+            var assetId = img.id || img.assetId || img.imageId;
+            if (assetId) props.asset_id = String(assetId);
             if (img.link) props.href = img.link;
             return {
               content_type: "block",
