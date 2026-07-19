@@ -108,62 +108,24 @@ function buildOmnisendTemplate(templateName, imageUrls) {
   };
 }
 
-// ── ID generator ────────────────────────────────────────────────────────────
-// Every node in a SYSTEM_DRAGGABLE definition (section, row, column, block)
-// carries BOTH an `id` and a `data_id` — 32-char hex strings, matching the
-// format of a real template pulled live from the user's Klaviyo account.
-function generateId() {
-  var s = "";
-  for (var i = 0; i < 32; i++) {
-    s += Math.floor(Math.random() * 16).toString(16);
-  }
-  return s;
-}
-
 // ── Klaviyo template builder ───────────────────────────────────────────────
-// Builds a NATIVE drag-and-drop template (editor_type: SYSTEM_DRAGGABLE with
-// a `definition`), structured to exactly match a real template pulled live
-// from the user's own Klaviyo account. Native templates get Klaviyo's full
-// editor: universal content SECTIONS (e.g. saved footers) drag in, and all
-// blocks get full style controls including per-device mobile settings.
-//
-// Why not the "hybrid HTML" approach (data-klaviyo-region markers)? It was
-// tested and hit two documented hard limits: universal SECTIONS are not
-// supported in hybrid templates (only individual universal blocks), and
-// blocks inside hybrid regions don't get full native mobile style controls.
-// Programmatic native-template creation is confirmed working on this
-// account (a template created via Klaviyo's MCP was fully editable in the
-// UI, including dragging universal content onto it).
+// Native drag-and-drop template (editor_type: SYSTEM_DRAGGABLE), built to
+// exactly match Klaviyo's published OpenAPI spec (stable revision
+// 2026-07-15, github.com/klaviyo/openapi). Key schema requirements:
+//  - definition requires BOTH `body` AND `styles` (array containing exactly
+//    one of each style type: base/text/heading-1..4/link/mobile)
+//  - body requires `properties` and `styles`
+//  - sections require content_type, type, and data (with properties,
+//    display_options, styles all present)
+//  - rows require data.styles; columns take data: {} and blocks[]
+//  - image blocks require content_type, type, data (properties with
+//    dynamic:false, display_options, styles)
+//  - id / data_id are readOnly — Klaviyo generates them; never send them
 function buildKlaviyoTemplate(templateName, imageUrls) {
   var sections = [];
 
   for (var i = 0; i < imageUrls.length; i++) {
     var img = imageUrls[i];
-
-    var imageBlock = {
-      content_type: "block",
-      type: "image",
-      data: {
-        properties: {
-          dynamic: false,
-          alt_text: img.altText || img.name || "",
-          asset_id: img.id || null,
-          href: img.link || null,
-          src: img.url
-        },
-        display_options: {},
-        styles: {
-          align: "center",
-          block_padding_bottom: 0,
-          block_padding_left: 0,
-          block_padding_right: 0,
-          block_padding_top: 0,
-          width: 600
-        }
-      },
-      id: generateId(),
-      data_id: generateId()
-    };
 
     sections.push({
       content_type: "section",
@@ -173,17 +135,33 @@ function buildKlaviyoTemplate(templateName, imageUrls) {
         display_options: {},
         styles: { background_color: "#FFFFFF" }
       },
-      id: generateId(),
-      data_id: generateId(),
       rows: [{
         data: { styles: { column_layout: "1-column-full-width" } },
-        id: generateId(),
-        data_id: generateId(),
         columns: [{
-          id: generateId(),
-          data_id: generateId(),
           data: {},
-          blocks: [imageBlock]
+          blocks: [(function() {
+            var props = {
+              dynamic: false,
+              alt_text: img.altText || img.name || "",
+              src: img.url
+            };
+            if (img.link) props.href = img.link;
+            return {
+              content_type: "block",
+              type: "image",
+              data: {
+                properties: props,
+                display_options: {},
+                styles: {
+                  align: "center",
+                  block_padding_bottom: 0,
+                  block_padding_left: 0,
+                  block_padding_right: 0,
+                  block_padding_top: 0
+                }
+              }
+            };
+          })()]
         }]
       }]
     });
@@ -191,11 +169,20 @@ function buildKlaviyoTemplate(templateName, imageUrls) {
 
   var definition = {
     body: {
-      properties: { id: "root-container", css_class: "bodyTable" },
+      properties: { css_class: "bodyTable" },
       styles: { background_color: "#F4F4F4", width: 600 },
-      id: generateId(),
       sections: sections
-    }
+    },
+    styles: [
+      { style_type: "base-styles", properties: {}, styles: { content_background_color: "#FFFFFF" } },
+      { style_type: "text-styles", styles: { font_family: "Arial, sans-serif", font_size: 14, color: "#000000" } },
+      { style_type: "heading-1-styles", styles: { font_family: "Arial, sans-serif", font_size: 36, color: "#000000" } },
+      { style_type: "heading-2-styles", styles: { font_family: "Arial, sans-serif", font_size: 30, color: "#000000" } },
+      { style_type: "heading-3-styles", styles: { font_family: "Arial, sans-serif", font_size: 24, color: "#000000" } },
+      { style_type: "heading-4-styles", styles: { font_family: "Arial, sans-serif", font_size: 18, color: "#000000" } },
+      { style_type: "link-styles", styles: { color: "#000000" } },
+      { style_type: "mobile-styles", properties: {}, styles: {} }
+    ]
   };
 
   return {
@@ -365,14 +352,12 @@ export default async function handler(req, res) {
       try {
         const klaviyoBody = buildKlaviyoTemplate(templateName, imageUrls || []);
         console.log("Klaviyo SYSTEM_DRAGGABLE body:", JSON.stringify(klaviyoBody).substring(0, 1500));
-        // SYSTEM_DRAGGABLE (native drag-and-drop) template creation requires
-        // the beta revision header — standard revisions only accept
-        // USER_DRAGGABLE (HTML) templates. No fallback here on purpose:
-        // if this fails we want the verbatim Klaviyo error surfaced, not a
-        // silent downgrade to a less-capable HTML template.
+        // `definition` / SYSTEM_DRAGGABLE is supported in the stable
+        // 2026-07-15 revision (confirmed against Klaviyo's published
+        // OpenAPI spec). Older revisions reject the definition field.
         const tres = await fetch("https://a.klaviyo.com/api/templates", {
           method: "POST",
-          headers: { "Authorization": `Klaviyo-API-Key ${apiKey}`, "revision": "2026-04-15.pre", "Content-Type": "application/vnd.api+json", "accept": "application/vnd.api+json" },
+          headers: { "Authorization": `Klaviyo-API-Key ${apiKey}`, "revision": "2026-07-15", "Content-Type": "application/vnd.api+json", "accept": "application/vnd.api+json" },
           body: JSON.stringify(klaviyoBody)
         });
         const ttext = await tres.text();
