@@ -108,62 +108,106 @@ function buildOmnisendTemplate(templateName, imageUrls) {
   };
 }
 
+// ── ID generator ────────────────────────────────────────────────────────────
+// Every node in a SYSTEM_DRAGGABLE definition (section, row, column, block)
+// carries BOTH an `id` and a `data_id` — 32-char hex strings, matching the
+// format of a real template pulled live from the user's Klaviyo account.
+function generateId() {
+  var s = "";
+  for (var i = 0; i < 32; i++) {
+    s += Math.floor(Math.random() * 16).toString(16);
+  }
+  return s;
+}
+
 // ── Klaviyo template builder ───────────────────────────────────────────────
-// Built against Klaviyo's documented "hybrid email template" feature
-// (help.klaviyo.com/hc/en-us/articles/115005254188) — NOT the undocumented
-// SYSTEM_DRAGGABLE beta API. This is the stable, supported mechanism:
-// submit a normal HTML template via editor_type: "USER_DRAGGABLE", but wrap
-// each image section in Klaviyo's specific marker markup:
+// Builds a NATIVE drag-and-drop template (editor_type: SYSTEM_DRAGGABLE with
+// a `definition`), structured to exactly match a real template pulled live
+// from the user's own Klaviyo account. Native templates get Klaviyo's full
+// editor: universal content SECTIONS (e.g. saved footers) drag in, and all
+// blocks get full style controls including per-device mobile settings.
 //
-//   <td align="center" data-klaviyo-region="true" data-klaviyo-region-width-pixels="600">
-//     <div class="klaviyo-block klaviyo-image-block">...</div>
-//   </td>
-//
-// Only regions wrapped this way become live, swappable, drag-and-drop image
-// blocks once the template is added to a campaign or flow — everything else
-// in the HTML stays static. Each Figma frame gets its own marker, so each
-// one becomes an independently movable/editable block, matching what
-// Omnisend already gives natively. Universal Content blocks can also be
-// referenced this same way (data-klaviyo-universal-block="block_id"), but
-// that's a separate feature this function does not attempt.
+// Why not the "hybrid HTML" approach (data-klaviyo-region markers)? It was
+// tested and hit two documented hard limits: universal SECTIONS are not
+// supported in hybrid templates (only individual universal blocks), and
+// blocks inside hybrid regions don't get full native mobile style controls.
+// Programmatic native-template creation is confirmed working on this
+// account (a template created via Klaviyo's MCP was fully editable in the
+// UI, including dragging universal content onto it).
 function buildKlaviyoTemplate(templateName, imageUrls) {
-  var imageRows = "";
+  var sections = [];
+
   for (var i = 0; i < imageUrls.length; i++) {
     var img = imageUrls[i];
-    var altText = (img.altText || img.name || "").replace(/"/g, "&quot;");
-    var imgTag = '<img src="' + img.url + '" alt="' + altText + '" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;" />';
-    var imgContent = img.link
-      ? '<a href="' + img.link + '" target="_blank" style="display:block;">' + imgTag + '</a>'
-      : imgTag;
 
-    imageRows += '<tr>\n';
-    imageRows += '  <td align="center" data-klaviyo-region="true" data-klaviyo-region-width-pixels="600" style="padding:0;margin:0;">\n';
-    imageRows += '    <div class="klaviyo-block klaviyo-image-block">\n';
-    imageRows += '      ' + imgContent + '\n';
-    imageRows += '    </div>\n';
-    imageRows += '  </td>\n';
-    imageRows += '</tr>\n';
+    var imageBlock = {
+      content_type: "block",
+      type: "image",
+      data: {
+        properties: {
+          dynamic: false,
+          alt_text: img.altText || img.name || "",
+          asset_id: img.id || null,
+          href: img.link || null,
+          src: img.url
+        },
+        display_options: {},
+        styles: {
+          align: "center",
+          block_padding_bottom: 0,
+          block_padding_left: 0,
+          block_padding_right: 0,
+          block_padding_top: 0,
+          width: 600
+        }
+      },
+      id: generateId(),
+      data_id: generateId()
+    };
+
+    sections.push({
+      content_type: "section",
+      type: "section",
+      data: {
+        properties: {},
+        display_options: {},
+        styles: { background_color: "#FFFFFF" }
+      },
+      id: generateId(),
+      data_id: generateId(),
+      rows: [{
+        data: { styles: { column_layout: "1-column-full-width" } },
+        id: generateId(),
+        data_id: generateId(),
+        columns: [{
+          id: generateId(),
+          data_id: generateId(),
+          data: {},
+          blocks: [imageBlock]
+        }]
+      }]
+    });
   }
 
-  var html = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">\n';
-  html += '<html xmlns="http://www.w3.org/1999/xhtml">\n<head>\n';
-  html += '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />\n';
-  html += '<meta name="viewport" content="width=device-width, initial-scale=1.0"/>\n';
-  html += '<title>' + templateName + '</title>\n';
-  html += '<style type="text/css">\n';
-  html += '  body { margin:0; padding:0; background-color:#f4f4f4; }\n';
-  html += '  img { border:0; height:auto; line-height:100%; outline:none; text-decoration:none; }\n';
-  html += '  table { border-collapse:collapse !important; }\n';
-  html += '  @media only screen and (max-width:600px) { .container { width:100% !important; } img { width:100% !important; height:auto !important; } }\n';
-  html += '</style>\n</head>\n';
-  html += '<body style="margin:0;padding:0;background-color:#f4f4f4;">\n';
-  html += '<table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f4f4f4;">\n';
-  html += '  <tr><td align="center" style="padding:0;">\n';
-  html += '    <table class="container" border="0" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background-color:#ffffff;">\n';
-  html += imageRows;
-  html += '    </table>\n  </td></tr>\n</table>\n</body>\n</html>';
+  var definition = {
+    body: {
+      properties: { id: "root-container", css_class: "bodyTable" },
+      styles: { background_color: "#F4F4F4", width: 600 },
+      id: generateId(),
+      sections: sections
+    }
+  };
 
-  return { data: { type: "template", attributes: { name: templateName, editor_type: "USER_DRAGGABLE", html: html } } };
+  return {
+    data: {
+      type: "template",
+      attributes: {
+        name: templateName,
+        editor_type: "SYSTEM_DRAGGABLE",
+        definition: definition
+      }
+    }
+  };
 }
 
 // ── Main handler ───────────────────────────────────────────────────────────
@@ -320,10 +364,15 @@ export default async function handler(req, res) {
     if (platform === "klaviyo") {
       try {
         const klaviyoBody = buildKlaviyoTemplate(templateName, imageUrls || []);
-        console.log("Klaviyo hybrid template body:", JSON.stringify(klaviyoBody).substring(0, 1000));
+        console.log("Klaviyo SYSTEM_DRAGGABLE body:", JSON.stringify(klaviyoBody).substring(0, 1500));
+        // SYSTEM_DRAGGABLE (native drag-and-drop) template creation requires
+        // the beta revision header — standard revisions only accept
+        // USER_DRAGGABLE (HTML) templates. No fallback here on purpose:
+        // if this fails we want the verbatim Klaviyo error surfaced, not a
+        // silent downgrade to a less-capable HTML template.
         const tres = await fetch("https://a.klaviyo.com/api/templates", {
           method: "POST",
-          headers: { "Authorization": `Klaviyo-API-Key ${apiKey}`, "revision": "2026-01-15", "Content-Type": "application/vnd.api+json", "accept": "application/vnd.api+json" },
+          headers: { "Authorization": `Klaviyo-API-Key ${apiKey}`, "revision": "2026-04-15.pre", "Content-Type": "application/vnd.api+json", "accept": "application/vnd.api+json" },
           body: JSON.stringify(klaviyoBody)
         });
         const ttext = await tres.text();
